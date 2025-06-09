@@ -1,4 +1,5 @@
 from pydantic import BaseModel, ConfigDict
+from .models import RoleEnum
 
 
 class UserBase(BaseModel):
@@ -7,7 +8,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password : str
-    role : str = "user"
+    role : RoleEnum = RoleEnum.admin
 
 class UserLogin(BaseModel):
     email : str

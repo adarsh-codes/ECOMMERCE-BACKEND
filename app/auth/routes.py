@@ -3,7 +3,7 @@ from fastapi.params import Depends
 from sqlalchemy.orm import Session
 from app.core.database import Base, SessionLocal, engine
 from . import schemas, email_service
-from .models import User
+from .models import User,PasswordToken
 from . import crud,utils
 from typing import List
 
@@ -42,13 +42,21 @@ def refresh(data : schemas.Refresh, db : Session = Depends(get_db)):
 
 EK LOGOUT WALA FEATURE YAAD RKHNA
 
+ADD FORGOT PASSWORD CODE TO OTHER FILE
 '''
 
 @router.post('/forgot-password')
 def send_email(data : schemas.ForgotPassword, db:Session = Depends(get_db)):
     res_token = utils.reset_token({"sub":data.email})
+    user = crud.get_user_by_email(db=db,email=data.email)
+    if not user:
+        raise HTTPException(status_code=404,detail="User not found!")
+    pass_db = PasswordToken(user_id = user.id, token = res_token,used=False)
     email_service.send_reset_email(to_email=data.email,token=res_token)
-    return {"message":"EMAIL SENT!"}
+    db.add(pass_db)
+    db.commit()
+    db.refresh(pass_db)
+    return {"reset_token":res_token}
 
 @router.post('/reset-password')
 def reset_password(data : schemas.ChangePassword,db : Session = Depends(get_db)):
