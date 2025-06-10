@@ -3,33 +3,40 @@ from .models import RoleEnum
 
 
 class UserBase(BaseModel):
-    name : str
-    email : str
+    name: str
+    email: str
+
 
 class UserCreate(UserBase):
-    password : str
-    role : RoleEnum = RoleEnum.admin
+    password: str
+    role: RoleEnum = RoleEnum.admin
+
 
 class UserLogin(BaseModel):
-    email : str
-    password : str
+    email: str
+    password: str
+
 
 class ForgotPassword(BaseModel):
-    email : str
+    email: str
+
 
 class ChangePassword(BaseModel):
-    token : str
-    new_password : str
+    token: str
+    new_password: str
+
 
 class Token(BaseModel):
-    access_token : str
-    refresh_token : str
-    type : str
+    access_token: str
+    refresh_token: str
+    type: str
+
 
 class Refresh(BaseModel):
-    refresh_token : str
+    refresh_token: str
+
 
 class UserOut(UserBase):
-    id : int
-    
+    id: int
+
     model_config = ConfigDict(from_attributes=True)

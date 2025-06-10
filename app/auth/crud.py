@@ -3,12 +3,10 @@ from fastapi import HTTPException
 from . import utils
 from app.auth import models
 from app.auth import schemas
-from app.auth import utils
-from datetime import datetime, timedelta, timezone
 from app.core.logging_config import logger
 
 
-def get_user_by_email(db : Session, email : str):
+def get_user_by_email(db: Session, email: str):
     return db.query(models.User).filter(models.User.email == email).first()
 
 
@@ -25,12 +23,24 @@ def create_user(db: Session, user: schemas.UserCreate):
     db.refresh(db_user)
     return db_user
 
-def login(db : Session,user: schemas.UserLogin):
-    user_db = db.query(models.User).filter(models.User.email == user.email).first()
-    access_token = utils.create_access_token({"sub":user.email,"role":user_db.role})
-    refresh_token = utils.create_refresh_token({"sub":user.email,"role":user_db.role})
+
+def login(db: Session, user: schemas.UserLogin):
     logger.info(f"Login requested by {user.email}")
-    return {"access_token": access_token,"refresh_token":refresh_token,"type":"bearer"}
+    user_db = db.query(models.User).filter(models.User.email == user.email).first()
+
+    access_token = utils.create_access_token({"sub": user.email, "role": user_db.role})
+
+    refresh_token = utils.create_refresh_token({"sub": user.email, "role": user_db.role})
+
+    return {"access_token": access_token, "refresh_token": refresh_token, "type": "bearer"}
+
+
+def store_reset_token(token: str, db: Session):
+    pass_db = models.PasswordToken(user_id=models.User.id, token=token, used=False)
+    db.add(pass_db)
+    db.commit()
+    db.refresh(pass_db)
+
 
 def reset_pass(data: dict, db: Session):
     payload = utils.decode_token(data.token)
@@ -52,8 +62,6 @@ def reset_pass(data: dict, db: Session):
         raise HTTPException(status_code=404, detail="User not found.")
 
     user.hashed_password = utils.hash_password(data.new_password)
-    reset_entry.used = True 
-
+    reset_entry.used = True
     db.commit()
-
     return {"message": "Password changed successfully!"}
