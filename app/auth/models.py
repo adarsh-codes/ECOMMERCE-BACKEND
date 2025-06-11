@@ -21,6 +21,7 @@ class User(Base):
     role = Column(SqlEnum(RoleEnum), default=RoleEnum.user)
 
     reset_tokens = relationship("PasswordToken", back_populates="user")
+    cart = relationship("Cart", back_populates="user")
 
 
 class PasswordToken(Base):
