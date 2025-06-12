@@ -21,7 +21,7 @@ class Orders(Base):
     user_id = Column(Integer, ForeignKey(User.id), nullable=False, index=True)
     total_amount = Column(Integer, nullable=False)
     status = Column(SqlEnum(StatusEnum), default=StatusEnum.pending, nullable=False)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="orders")
     items = relationship("OrderItems", back_populates="orders")

@@ -23,6 +23,7 @@ class User(Base):
     reset_tokens = relationship("PasswordToken", back_populates="user")
     cart = relationship("Cart", back_populates="user")
     orders = relationship("Orders", back_populates="user")
+    product = relationship("Products", back_populates="user")
 
 
 class PasswordToken(Base):
@@ -31,6 +32,6 @@ class PasswordToken(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     token = Column(String, unique=True, nullable=False)
-    expiration_time = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc) + timedelta(minutes=30))
+    expiration_time = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc) + timedelta(minutes=30))
     used = Column(Boolean, default=False)
     user = relationship("User", back_populates="reset_tokens")

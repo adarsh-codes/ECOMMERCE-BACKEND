@@ -1,48 +1,73 @@
 from .models import Products, OrderItems, Orders
 from app.cart.models import Cart
-from app.auth.models import User
+from sqlalchemy import select
+from fastapi import HTTPException
 
 
-def checkout(db, current_user, cartdetail):
+async def checkout(db, current_user, cartdetail):
     total_price = 0
     order_items = []
 
     for item in cartdetail:
         prod_id = item.product_id
-        price = db.query(Products).filter(Products.id == prod_id).first().price
-        prod_quantity = item.quantity
-        price_at_purchase = price * prod_quantity
-        total_price += price * prod_quantity
+        result = await db.execute(select(Products).where(Products.id == prod_id))
+        prod = result.scalar_one_or_none()
 
-        order_items.append({"product_id": prod_id, "quantity": prod_quantity,
-                            "price_at_purchase": price_at_purchase})
+        if not prod:
+            raise HTTPException(status_code=404, detail=f"Product with id {prod_id} not found")
+        if prod.stock < item.quantity:
+            raise HTTPException(status_code=400, detail=f"Not enough stock for {prod.name}")
 
-    user_id = db.query(User).filter(User.id == Cart.user_id).first().id
-    order_obj = Orders(user_id=user_id, total_amount=total_price)
+        # Deduct stock
+        prod.stock -= item.quantity
+        await db.flush()
+
+        price = prod.price
+        total_price += price * item.quantity
+
+        order_items.append({
+            "product_id": prod_id,
+            "quantity": item.quantity,
+            "price_at_purchase": price
+        })
+
+    # Create order
+    order_obj = Orders(user_id=current_user.id, total_amount=total_price)
     db.add(order_obj)
-    db.commit()
-    db.refresh(order_obj)
+    await db.flush()
 
+    # Create order items
     for item in order_items:
-        order_item = OrderItems(
+        db.add(OrderItems(
             order_id=order_obj.id,
             product_id=item["product_id"],
             quantity=item["quantity"],
             price_at_purchase=item["price_at_purchase"]
-        )
-        db.add(order_item)
+        ))
+        await db.flush()
 
-    db.commit()
+    # Clear user's cart
+    cart_query = select(Cart).where(Cart.user_id == current_user.id)
+    cart_result = await db.execute(cart_query)
+    cart_items = cart_result.scalars().all()
+    for cart_item in cart_items:
+        await db.delete(cart_item)
 
-    db.query(Cart).filter(Cart.user_id == current_user.id).delete()
-    db.commit()
+    await db.commit()
+    await db.refresh(order_obj)
 
-    return {"message": f"Order Placed order_id : {order_obj.id}, Amount debited :{total_price}! Thanks for shopping!"}
-
-
-def show_orders(db, current_user):
-    return db.query(Orders).filter(Orders.user_id == current_user.id).all()
+    return {
+        "message": f"Order Placed: order_id={order_obj.id}, Amount debited: Rs.{total_price}. Thank you for shopping!"
+    }
 
 
-def fetch_order_by_id(db, current_user, order_id):
-    return db.query(Orders).filter(Orders.id == order_id).all()
+async def show_orders(db, current_user):
+    result = await db.execute(select(Orders).where(Orders.user_id == current_user.id).order_by(Orders.created_at.desc()))
+    orders = result.scalars().all()
+    return orders
+
+
+async def fetch_order_by_id(db, current_user, order_id):
+    result = await db.execute(select(Orders).where(Orders.user_id == current_user.id, Orders.id == order_id))
+    order = result.scalar_one_or_none()
+    return order

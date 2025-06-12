@@ -1,64 +1,79 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
-from . import controllers, schemas, email_service
-from .models import User
+from . import controllers, schemas
 from . import utils
-from typing import List
 from app.core.logging_config import logger
+from app.core.custom_exceptions import UserAlreadyExists, InvalidCredentials, PasswordPattern
 
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 @router.post('/signup', response_model=schemas.UserOut)
-def add_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    existing_user = controllers.get_user_by_email(db, user.email)
-    logger.info(f"An attempt to sign up was made by email : {user.email}")
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    new_user = controllers.create_user(db, user)
-    return new_user
+async def add_user(user: schemas.UserCreate, db: AsyncSession = Depends(get_db)):
+    logger.info(f"[SIGNUP] Attempt from {user.email}")
+
+    try:
+        return await controllers.create_user(db, user)
+
+    except UserAlreadyExists as e:
+        logger.warning(f"[SIGNUP] User already exists: {e}")
+        raise HTTPException(status_code=400, detail="Email already registered. Please login.")
+    except PasswordPattern as e:
+        logger.warning(f"[SIGNUP]: {e}")
+        raise HTTPException(status_code=400, detail=f"{e}")
+    except Exception as e:
+        logger.error(f"[SIGNUP] Internal server error: {e}")
+        raise HTTPException(status_code=500, detail=f"{e}")
 
 
 @router.post('/signin', response_model=schemas.Token)
-def user_login(user: schemas.UserLogin, db: Session = Depends(get_db)):
-    existing_user = controllers.get_user_by_email(db=db, email=user.email)
-    if not existing_user or not utils.verify_password(user.password, existing_user.hashed_password):
-        return HTTPException(status_code=404, detail="Invalid Credentials! Please check the details input.")
-    return controllers.login(user=user, db=db)
+async def user_login(user: schemas.UserLogin, db: AsyncSession = Depends(get_db)):
+    try:
+        return await controllers.login(user=user, db=db)
+
+    except InvalidCredentials as e:
+        logger.warning(f"{e}")
+        raise HTTPException(status_code=404, detail="Invalid Credentials.")
+    except Exception as e:
+        logger.error(f"[SIGNIN] Internal server error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to sign in user.")
 
 
 @router.post("/refresh", response_model=schemas.Token)
-def refresh(data: schemas.Refresh, db: Session = Depends(get_db)):
-    return utils.refresh_token(data=data)
+async def refresh(data: schemas.Refresh, db: AsyncSession = Depends(get_db)):
+    try:
+        return utils.refresh_token(data=data)
+    except Exception as e:
+        logger.error(f"Internal server error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to refresh token.")
 
 
 '''
 
 EK LOGOUT WALA FEATURE YAAD RKHNA
 
-ADD FORGOT PASSWORD CODE TO OTHER FILE
 '''
 
 
 @router.post('/forgot-password')
-def send_email(data: schemas.ForgotPassword, db: Session = Depends(get_db)):
-    res_token = utils.reset_token({"sub": data.email})
-    user = controllers.get_user_by_email(db=db, email=data.email)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found!")
-    email_service.send_reset_email(to_email=data.email, token=res_token)
-    controllers.store_reset_token(token=res_token, db=db)
-    return {"reset_token": res_token, "message": "Reset token stored In DB."}
+async def send_email(data: schemas.ForgotPassword, db: AsyncSession = Depends(get_db)):
+    try:
+        return await controllers.send_mail(data=data, db=db)
+    except Exception as e:
+        logger.error(f"Internal server error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to send mail to user.")
 
 
 @router.post('/reset-password')
-def reset_password(data: schemas.ChangePassword, db: Session = Depends(get_db)):
-    return controllers.reset_pass(data=data, db=db)
-
-
-@router.get('/users', response_model=List[schemas.UserOut])
-def get_users(db: Session = Depends(get_db), skip: int = 0, limit: int = 10):
-    return db.query(User).all()
+async def reset_password(data: schemas.ChangePassword, db: AsyncSession = Depends(get_db)):
+    try:
+        return await controllers.reset_pass(data=data, db=db)
+    except PasswordPattern as e:
+        logger.error(f"Internal server error: {e}")
+        raise HTTPException(status_code=400, detail=f"{e}")
+    except Exception as e:
+        logger.error(f"Internal server error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to change password.")
