@@ -1,4 +1,3 @@
-from app.core.config import settings
 from fastapi import FastAPI
 from app.core.database import Base, engine
 from app.auth import routes
@@ -6,10 +5,6 @@ from app.products import public_routes, admin_routes
 from app.cart import routes as cart_routes
 from app.orders import routes as order_routes
 from app.middlewares.logging_middleware import LoggingMiddleware
-from app.auth import models as auth_models
-from app.cart import models as cart_models
-from app.products import models as product_models
-from app.orders import models as order_models
 
 
 Base.metadata.create_all(bind=engine)
