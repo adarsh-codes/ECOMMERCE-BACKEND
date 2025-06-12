@@ -15,3 +15,4 @@ class Products(Base):
     image_url = Column(String, nullable=True, index=True)
 
     cart = relationship("Cart", back_populates="product")
+    items = relationship("OrderItems", back_populates="products")
