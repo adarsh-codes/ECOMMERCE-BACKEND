@@ -1,9 +1,9 @@
 from app.core.database import Base
-from sqlalchemy import String, Column, Integer, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, ForeignKey, DateTime, Float
 from sqlalchemy import Enum as SqlEnum
 from enum import Enum
 from sqlalchemy.orm import relationship
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from app.auth.models import User
 from app.products.models import Products
 
@@ -19,8 +19,8 @@ class Orders(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey(User.id), nullable=False, index=True)
-    total_amount = Column(Integer, nullable=False)
-    status = Column(SqlEnum(StatusEnum), default=StatusEnum.pending, nullable=False)
+    total_amount = Column(Float, nullable=False)
+    status = Column(SqlEnum(StatusEnum), default=StatusEnum.paid, nullable=False)
     created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="orders")
@@ -34,7 +34,7 @@ class OrderItems(Base):
     order_id = Column(Integer, ForeignKey(Orders.id), nullable=False)
     product_id = Column(Integer, ForeignKey(Products.id), nullable=False)
     quantity = Column(Integer, nullable=False)
-    price_at_purchase = Column(Integer, nullable=False)
+    price_at_purchase = Column(Float, nullable=False)
 
     orders = relationship("Orders", back_populates="items")
     products = relationship("Products", back_populates="items")

@@ -1,5 +1,5 @@
 from app.core.database import Base
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, Float
 from sqlalchemy.orm import relationship
 from app.auth.models import User
 
@@ -11,7 +11,7 @@ class Products(Base):
     user_id = Column(Integer, ForeignKey(User.id), nullable=False)
     name = Column(String, nullable=False, index=True)
     description = Column(String, nullable=False, index=True)
-    price = Column(Integer, nullable=False, index=True)
+    price = Column(Float, nullable=False, index=True)
     stock = Column(Integer, nullable=False, index=True)
     category = Column(String, nullable=False, index=True)
     image_url = Column(String, nullable=True, index=True)

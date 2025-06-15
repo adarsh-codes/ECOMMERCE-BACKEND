@@ -34,6 +34,15 @@ class Token(BaseModel):
     type: str
 
 
+class ResetTokenResponse(BaseModel):
+    reset_token: str
+    message: str
+
+
+class MessageResponse(BaseModel):
+    message: str
+
+
 class Refresh(BaseModel):
     refresh_token: str
 

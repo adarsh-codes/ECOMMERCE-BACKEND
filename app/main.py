@@ -1,25 +1,22 @@
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.exceptions import RequestValidationError
-from app.core.error_response import format_error
 from contextlib import asynccontextmanager
-from sqlalchemy.ext import asyncio
+from fastapi.routing import APIRoute
+from fastapi.responses import JSONResponse
+from app.core.error_response import format_error
 from app.core.database import Base, engine
+from fastapi.openapi.utils import get_openapi
 from app.auth import routes
 from app.products import public_routes, admin_routes
 from app.cart import routes as cart_routes
 from app.orders import routes as order_routes
 from app.middlewares.logging_middleware import LoggingMiddleware
 from app.core.logging_config import logger
-from fastapi.responses import JSONResponse
+from app.core.dependencies import oauth2_scheme
 from app.auth.models import User, PasswordToken
 from app.cart.models import Cart
 from app.orders.models import Orders, OrderItems
 from app.products.models import Products
-
-
-# async def create_tables():
-#   async with engine.begin() as conn:
-#      await conn.run_sync(Base.metadata.create_all)
 
 
 @asynccontextmanager
@@ -29,8 +26,10 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="My api", version="1.0", lifespan=lifespan)
+app = FastAPI(title="ECOMMERCE-BACKEND", version="1.0", lifespan=lifespan)
 
+
+# Including all routers and middleware
 app.include_router(routes.router)
 app.add_middleware(LoggingMiddleware)
 app.include_router(public_routes.router)
@@ -39,10 +38,9 @@ app.include_router(cart_routes.router)
 app.include_router(order_routes.router)
 
 
-@app.get('/')
-def add_user():
-    return {"hello": "yo"}
-
+@app.get("/")
+def main_app():
+    return {"message": "Switch to localhost:8000/docs for Swagger UI."}
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -82,3 +80,33 @@ async def http_exception_handler(request: Request, exc: HTTPException):
             "detail": exc.detail if isinstance(exc.detail, dict) else None
         }
     )
+
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = get_openapi(
+        title="E-commerce API",
+        version="1.0.0",
+        description="Secure backend using JWT token auth",
+        routes=app.routes,
+    )
+    # Override the OAuth2 security scheme to use Bearer
+    openapi_schema["components"]["securitySchemes"] = {
+        "OAuth2PasswordBearer": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT"
+        }
+    }
+    for route in app.routes:
+        if isinstance(route, APIRoute):
+            if any(dep.dependencies == oauth2_scheme for dep in route.dependant.dependencies):
+                path = route.path
+                method = list(route.methods)[0].lower()
+                openapi_schema["paths"][path][method]["security"] = [{"OAuth2PasswordBearer": []}]
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+
+app.openapi = custom_openapi

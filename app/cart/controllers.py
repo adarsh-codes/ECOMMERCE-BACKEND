@@ -61,6 +61,17 @@ async def delete_cart_item(db, user, product_id):
 
 
 async def update_cart(db, user, product_id, cart):
+    result = await db.execute(select(Products).where(Products.id == product_id))
+    product = result.scalar_one_or_none()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found.")
+
+    if cart.quantity <= 0:
+        raise HTTPException(status_code=400, detail="Quantity must be at least 1.")
+
+    if cart.quantity > product.stock:
+        raise HTTPException(status_code=400, detail=f"Only {product.stock} items available in stock.")
+
     query = select(Cart).where(Cart.user_id == user.id, Cart.product_id == product_id)
     result = await db.execute(query)
     cart_item = result.scalar_one_or_none()

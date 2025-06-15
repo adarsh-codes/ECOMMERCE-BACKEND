@@ -10,3 +10,7 @@ class InvalidCredentials(Exception):
 
 class PasswordPattern(Exception):
     pass
+
+
+class PriceInvalidException(Exception):
+    pass

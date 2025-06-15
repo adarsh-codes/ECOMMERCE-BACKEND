@@ -1,4 +1,5 @@
 from .models import Products
+from app.core.custom_exceptions import PriceInvalidException
 from sqlalchemy import asc, desc, select
 
 
@@ -76,6 +77,8 @@ async def get_product_by_id(db, id, current_user):
 
 
 async def update_product_details(db, id, product, current_user):
+    if product.price and not product.price > 0:
+        raise PriceInvalidException("Price should be greater than zero.")
     query = select(Products).where(Products.id == id, Products.user_id == current_user.id)
     result = await db.execute(query)
     product_obj = result.scalar_one_or_none()

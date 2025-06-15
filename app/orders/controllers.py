@@ -4,9 +4,15 @@ from sqlalchemy import select
 from fastapi import HTTPException
 
 
-async def checkout(db, current_user, cartdetail):
+async def checkout(db, current_user):
+    cart_query = select(Cart).where(Cart.user_id == current_user.id)
+    cart_result = await db.execute(cart_query)
+    cartdetail = cart_result.scalars().all()
     total_price = 0
     order_items = []
+
+    if not cartdetail:
+        raise HTTPException(status_code=400, detail="Cart is empty. Cannot place order.")
 
     for item in cartdetail:
         prod_id = item.product_id
@@ -57,7 +63,7 @@ async def checkout(db, current_user, cartdetail):
     await db.refresh(order_obj)
 
     return {
-        "message": f"Order Placed: order_id={order_obj.id}, Amount debited: Rs.{total_price}. Thank you for shopping!"
+        "message": f"Order Placed: order_id={order_obj.id}, Order Amount: Rs.{total_price}. Thank you for shopping!"
     }
 
 
@@ -68,6 +74,6 @@ async def show_orders(db, current_user):
 
 
 async def fetch_order_by_id(db, current_user, order_id):
-    result = await db.execute(select(Orders).where(Orders.user_id == current_user.id, Orders.id == order_id))
+    result = await db.execute(select(OrderItems).where(OrderItems.order_id == order_id))
     order = result.scalar_one_or_none()
     return order

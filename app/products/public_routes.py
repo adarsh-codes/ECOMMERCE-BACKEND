@@ -3,13 +3,15 @@ from app.core.database import get_db
 from fastapi import Query
 from typing import Optional, Literal
 from . import controllers
+from . import schemas
+from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.logging_config import logger
 
 router = APIRouter(prefix="/products", tags=["Products"])
 
 
-@router.get("/")
+@router.get("/", response_model=List[schemas.ProductFetch])
 async def product_filters(
     category: Optional[str] = Query(None),
     min_price: Optional[int] = Query(None, ge=0),
@@ -36,16 +38,16 @@ async def product_filters(
         raise HTTPException(status_code=500, detail=f"Failed to fetch products : {e}")
 
 
-@router.get('/search')
+@router.get('/search', response_model=List[schemas.ProductFetch])
 async def product_search(keyword: str = Query(None), db: AsyncSession = Depends(get_db)):
     try:
-        return await controllers.search_products(keyword=keyword)
+        return await controllers.search_products(keyword=keyword, db=db)
     except Exception as e:
         logger.error(f"Something went wrong!: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch products : {e}")
 
 
-@router.get('/{id}')
+@router.get('/{id}', response_model=schemas.ProductFetch)
 async def get_product(id: int, db: AsyncSession = Depends(get_db)):
     try:
         return await controllers.find_product(id=id, db=db)
